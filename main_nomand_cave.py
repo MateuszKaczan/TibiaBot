@@ -248,7 +248,6 @@ def check_flag(flag_path, total_wait, attempts=0):
     remaining_walk_time = total_wait
 
     while remaining_walk_time > 0:
-        # Znajdź flagę ZA KAŻDYM RAZEM od nowa (bo mapa się przesuwa)
         box = safe_locate(flag_path, MAPA_REGION, 0.7)
         if not box:
             print(f"Flaga {flag_path} nie znaleziona na minimapie")
@@ -258,7 +257,6 @@ def check_flag(flag_path, total_wait, attempts=0):
             f"Idę do flagi: {flag_path} (pozostało czasu chodzenia: {remaining_walk_time:.1f}s)"
         )
 
-        # Klik na flagę
         x, y = pg.center(box)
         pg.moveTo(x, y, duration=0.25)
         time.sleep(0.25)
@@ -269,56 +267,51 @@ def check_flag(flag_path, total_wait, attempts=0):
         walk_start_time = time.time()
         check_interval = 0.4
 
-        # Chodź przez krótki okres (max 3 sekundy) lub do spotkania potwora
         walk_phase_time = min(3.0, remaining_walk_time)
         walked_this_phase = 0
+        monsters_encountered = False
 
         while walked_this_phase < walk_phase_time:
-            # print(
-            #     "walked_this_phase: ",
-            #     walked_this_phase,
-            #     " walk_phase_time: ",
-            #     walk_phase_time,
-            # )
             step_start = time.time()
 
             if there_are_monsters():
-                # if there_is_Nomad():
                 print(f"   → Napotkałem potwora! Walczę... ({flag_path})")
-                kill_monster()
-                print(f"   → Potwór zabity, szukam ponownie flagi {flag_path}")
-                # Przerwanie chodzenia - wyjdziemy z pętli i klikniemy flagę od nowa
-                walked_this_phase = (
-                    walk_phase_time  # Wymuszenie wyjścia z wewnętrznej pętli
-                )
-                break
+                kill_monster()  # Ta funkcja powinna zwracać czas walki
+                print(f"   → Potwór zabity, kontynuuję podróż do flagi {flag_path}")
+                monsters_encountered = True
+                # NIE przerywamy chodzenia - kontynuujemy od tego samego miejsca
+                # walked_this_phase pozostaje takie jakie jest (czas już przebyty)
+                continue  # Wracamy do sprawdzenia czy są kolejne potwory
 
-            # Jeśli nie ma potworów, idź dalej
-            elapsed = time.time() - step_start
-            if elapsed < 2.0:
-                walked_this_phase += elapsed
+            # Jeśli nie ma potworów, idź dalej (tylko jeśli nie napotkaliśmy potwora w tej iteracji)
+            if not monsters_encountered:
+                # Oblicz czas tego kroku (tylko jeśli faktycznie szliśmy)
+                elapsed = time.time() - step_start
+                if elapsed < 2.0:
+                    walked_this_phase += elapsed
+
+            # Reset flagi potwora na następną iterację
+            monsters_encountered = False
 
             if walked_this_phase < walk_phase_time:
                 sleep_time = min(check_interval, walk_phase_time - walked_this_phase)
                 time.sleep(sleep_time)
                 walked_this_phase += sleep_time
 
-        # Odejmij czas który faktycznie chodziliśmy (bez czasu walki)
-        actual_walk_time = min(walk_phase_time, walked_this_phase)
-        remaining_walk_time -= actual_walk_time
+        # Odejmij TYLKO rzeczywisty czas chodzenia
+        remaining_walk_time -= walked_this_phase
 
-        # Jeśli został jeszcze czas i nie spotkaliśmy potwora w tej fazie,
-        # to kontynuujemy od nowa z kliknięciem flagi
         if remaining_walk_time > 0.1:
-            print(f"   → Kontynuuję podróż do flagi {flag_path}...")
-            time.sleep(0.3)  # Krótka pauza przed ponownym kliknięciem flagi
+            print(
+                f"   → Kontynuuję podróż do flagi {flag_path} (pozostało {remaining_walk_time:.1f}s)..."
+            )
+            time.sleep(0.3)
 
-    # Po zakończeniu całego czasu chodzenia
     print(f"   → Dotarłem do flagi {flag_path} (czas chodzenia zakończony)")
 
     if attempts > 0:
         for attempt in range(attempts):
-            print("attempts: ", attempt, "/", attempts)
+            print("attempts: ", attempt + 1, "/", attempts)
             additional_check(flag_path)
 
 
