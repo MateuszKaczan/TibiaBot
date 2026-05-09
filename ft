@@ -1,0 +1,349 @@
+import pyautogui as pg
+import time
+import random
+
+pg.useImageNotFoundException(False)
+pg.PAUSE = 0.05
+
+# ==================== KONFIGURACJA ====================
+
+flags = [
+    {"path": "./images/flags/flag_6.png", "wait": 5},
+    # {"path": "./images/flags/flag_11.png", "wait": 3},
+    # {"path": "./images/flags/flag_7.png", "wait": 3},
+    # {"path": "./images/flags/flag_10.png", "wait": 5},
+    {"path": "./images/flags/flag_1.png", "wait": 3},
+    {"path": "./images/flags/flag_4.png", "wait": 2},
+    {"path": "./images/flags/flag_1.png", "wait": 1},
+    {"path": "./images/flags/flag_2.png", "wait": 6},
+    {"path": "./images/flags/flag_3.png", "wait": 5},
+]
+
+items = [
+    {"path": "./images/items/ham.png"},
+    {"path": "./images/items/meat.png"},
+]
+
+MAPA_REGION = (1751, 27, 106, 106)
+BATTLE_REGION = (1560, 27, 180, 310)
+BACKPACK_REGION = (1744, 462, 172, 439)
+USE_REGION = (1550, 462, 250, 639)
+
+MANA_REGION = (850, 28, 250, 12)
+HEALTH_REGION_LOW = (295, 28, 100, 10)
+HEALTH_REGION_NOT_FULL = (535, 28, 160, 10)
+STATUS_REGION = (1752, 286, 100, 9)
+
+ATTACK_COLORS = [(233, 0, 0), (186, 96, 96)]
+ATTACK_CHECK_POS = (1591, 362)
+
+GOLD_IMAGE = r"./images/items/100gold.png"
+USE_IMAGE = r"./images/items/use.png"
+
+
+# ==================== BEZPIECZNE FUNKCJE ====================
+
+
+def safe_locate(image_path, region=None, confidence=0.95):
+    try:
+        if region:
+            return pg.locateOnScreen(image_path, region=region, confidence=confidence)
+        return pg.locateOnScreen(image_path, confidence=confidence)
+    except Exception:
+        return None
+
+
+def is_hp_low():
+    return safe_locate("./images/bar_black.png", HEALTH_REGION_LOW, 0.95) is not None
+
+
+def is_hp_not_full():
+    return (
+        safe_locate("./images/bar_black.png", HEALTH_REGION_NOT_FULL, 0.95) is not None
+    )
+
+
+def is_mana_ok():
+    return safe_locate("./images/bar_blue.png", MANA_REGION, 0.95) is not None
+
+
+def there_are_monsters():
+    return safe_locate("./images/BattleList.png", BATTLE_REGION, 0.95) is None
+
+
+def are_3_monsters():
+    return are_3_or_more_monsters() or are_3_or_more_monsters_low_hp()
+
+
+def are_3_or_more_monsters():
+    return (
+        safe_locate("./images/monsters/battle_3_or_more.png", BATTLE_REGION, 0.9)
+        is not None
+    )
+
+
+def are_3_or_more_monsters_low_hp():
+    return (
+        safe_locate("./images/monsters/battle_3_or_more_low_hp.png", BATTLE_REGION, 0.9)
+        is not None
+    )
+
+
+def heal_character():
+    if is_hp_low():
+        pg.press("F1")
+    if is_mana_ok() and is_hp_not_full():
+        pg.press("F2")
+    elif not is_mana_ok() and is_hp_not_full():
+        pg.press("F4")
+
+
+# ==================== KONWERSJA POJEDYNCZEGO STACKA ====================
+
+
+def change_one_gold_stack():
+    """Konwertuje tylko jeden stack 100gp - szybka wersja"""
+    box = safe_locate(GOLD_IMAGE, BACKPACK_REGION, 0.95)
+    if not box:
+        return False
+
+    x, y = pg.center(box)
+    pg.moveTo(x + random.randint(-4, 4), y + random.randint(-4, 4), duration=0.22)
+    time.sleep(0.15)
+
+    pg.rightClick()
+    time.sleep(0.15)
+
+    boxUse = safe_locate(USE_IMAGE, USE_REGION, 0.75)
+    if not boxUse:
+        return False
+
+    ux, uy = pg.center(boxUse)
+    pg.moveTo(ux + random.randint(-3, 3), uy + random.randint(-3, 3), duration=0.22)
+    time.sleep(0.15)
+    pg.click()
+
+    pg.moveTo(1300, 400, duration=0.25)
+    time.sleep(0.18)
+
+    print("   → Przekonwertowano 1 stack 100gp")
+    return True
+
+
+# ==================== WALK + KONWERSJA W TRAKCIE WALKI ====================
+
+
+def kill_monster():
+    print("   → Rozpoczęto walkę - staram się zbierać potwory")
+
+    while there_are_monsters():
+        # Atakujemy pojedyńczo tylko przez krótki czas
+        pg.press("t")
+        time.sleep(1.2)
+        pg.press("f")
+
+        heal_character()
+
+        # === GŁÓWNA LOGIKA ZBIERANIA ===
+        if are_3_monsters():
+            print("   → Wykryto 3+ potwory! Używam czaru obszarowego F5")
+            for _ in range(3):
+                heal_character()
+                time.sleep(0.4)
+            pg.press("F5")
+            time.sleep(1.0)
+            change_one_gold_stack()  # konwersja po F5
+
+        else:
+            # Jeśli jest mniej niż 3 potwory - czekamy chwilę na przyjście kolejnych
+            print("   → Mało potworów - czekam na więcej...")
+            for _ in range(5):  # czekamy max ~2.5 sekundy
+                heal_character()
+                change_one_gold_stack()  # konwersja w tym czasie
+                time.sleep(0.5)
+
+                if are_3_monsters():  # jeśli w międzyczasie przyszły kolejne
+                    break
+
+            # Jeśli nadal mało - atakujemy normalnie
+            if not are_3_monsters():
+                pg.press("f")
+                time.sleep(0.6)
+
+        heal_character()
+
+        # Czekanie aż postać atakuje (czerwony pasek)
+        for color in ATTACK_COLORS:
+            attack_time = 0
+            while pg.pixelMatchesColor(
+                ATTACK_CHECK_POS[0], ATTACK_CHECK_POS[1], color, tolerance=50
+            ):
+                heal_character()
+                change_one_gold_stack()  # konwersja podczas walki
+                time.sleep(1.2)
+                attack_time += 1.2
+
+                # Co jakiś czas sprawdzamy czy nie ma już 3+
+                if attack_time > 6 and are_3_monsters():
+                    break
+
+
+# def kill_monster():
+#     while there_are_monsters():
+#         pg.press("t")
+#         time.sleep(1)
+#         pg.press("f")
+
+#         if are_3_monsters():
+#             print("   → Wykryto 3+ Leony! Czekam na pełną walkę przed F5...")
+
+#             for _ in range(3):
+#                 heal_character()
+#                 time.sleep(0.5)
+
+#             pg.press("F5")
+#             print("   → Rzucono F5 (obszarowy czar)")
+#             time.sleep(0.8)
+#         else:
+#             change_one_gold_stack()
+
+#         heal_character()
+#         pg.press("f")
+
+#         # change_one_gold_stack()
+
+#         for color in ATTACK_COLORS:
+#             while pg.pixelMatchesColor(
+#                 ATTACK_CHECK_POS[0], ATTACK_CHECK_POS[1], color, tolerance=50
+#             ):
+#                 heal_character()
+
+#                 # Konwersja podczas atakowania (rzadziej)
+#                 # if random.random() < 0.25:
+#                 #     change_one_gold_stack()
+
+#                 time.sleep(2)
+
+
+# ==================== RESZTA FUNKCJI (bez zmian) ====================
+
+
+def check_flag(flag_path, total_wait):
+    box = safe_locate(flag_path, MAPA_REGION, 0.7)
+    if not box:
+        print(f"Flaga {flag_path} nie znaleziona na minimapie")
+        return
+
+    print(f"Idę do flagi: {flag_path} (całkowity czas chodzenia: {total_wait}s)")
+
+    x, y = pg.center(box)
+    pg.moveTo(x, y, duration=0.25)
+    time.sleep(0.25)
+    pg.click()
+    time.sleep(0.2)
+    pg.moveTo(1300, 400, duration=0.2)
+
+    remaining_walk_time = total_wait
+    check_interval = 0.7
+
+    while remaining_walk_time > 0:
+        start = time.time()
+
+        if there_are_monsters():
+            print(f"   → Napotkałem potwora! Walczę... ({flag_path})")
+            kill_monster()
+            print(
+                f"   → Potwór zabity, kontynuuję drogę (pozostało {remaining_walk_time:.1f}s chodzenia)"
+            )
+
+        elapsed = time.time() - start
+
+        if elapsed < 2.0:
+            remaining_walk_time -= elapsed
+
+        if remaining_walk_time > 0:
+            sleep_time = min(check_interval, remaining_walk_time)
+            time.sleep(sleep_time)
+            remaining_walk_time -= sleep_time
+
+    print(f"   → Dotarłem do flagi {flag_path} (czas chodzenia zakończony)")
+
+    if total_wait > 2:
+        additional_check(flag_path)
+    else:
+        time.sleep(1.5)
+        kill_monster()
+
+
+def additional_check(flag_path):
+    box = safe_locate(flag_path, MAPA_REGION, 0.7)
+    if box:
+        print(f"   → Dodatkowa próba dojścia: {flag_path}")
+        x, y = pg.center(box)
+        pg.moveTo(x, y, duration=0.2)
+        time.sleep(0.2)
+        pg.click()
+        time.sleep(0.2)
+        pg.moveTo(1300, 400, duration=0.2)
+        time.sleep(2)
+        kill_monster()
+    else:
+        print(f"   → Flaga {flag_path} nie znaleziona w dodatkowej próbie")
+
+
+def there_are_item(item_path):
+    return safe_locate(item_path, BACKPACK_REGION, 0.8)
+
+
+def drop_item(box):
+    if not box:
+        return
+    x, y = pg.center(box)
+    pg.moveTo(x, y, duration=0.2)
+    time.sleep(0.1)
+    pg.dragTo(782, 481, duration=0.5)
+    time.sleep(0.1)
+    pg.moveTo(1300, 400, duration=0.2)
+
+
+def remove_items_from_backpack():
+    for item in items:
+        while (box := there_are_item(item["path"])) is not None:
+            drop_item(box)
+
+
+# ==================== GŁÓWNA PĘTLA ====================
+
+
+def run():
+    kill_monster()
+
+    for flag in flags:
+        check_flag(flag["path"], flag["wait"])
+        pg.press("F7")
+
+        # Wyrzucanie itemów TYLKO po walce
+        print("   → Usuwam itemy z backpacka...")
+        remove_items_from_backpack()
+        # change_one_gold_stack():
+        # Opcjonalnie: możesz tu dodać więcej konwersji jeśli chcesz
+        print("   → Dodatkowa konwersja po walce...")
+        # for _ in range(1):
+        #     if not
+        #         break
+        # time.sleep(random.uniform(0.4, 0.8))
+
+
+if __name__ == "__main__":
+    print("=== BOT TIBIA v3.6 uruchomiony ===")
+    print("Konwersja podczas walki | Drop tylko po walce\n")
+
+    try:
+        while True:
+            run()
+    except KeyboardInterrupt:
+        print("\n\nBot zatrzymany przez użytkownika (Ctrl+C)")
+    except Exception as e:
+        print(f"\nNieoczekiwany błąd: {e}")
+    finally:
+        print("Koniec działania bota.")
