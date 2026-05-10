@@ -4,8 +4,7 @@ import time
 pg.useImageNotFoundException(False)
 pg.PAUSE = 0.05
 # venv\Scripts\activate
-# py .\main3.5_hero_cave_fast.py
-
+# main_barklessy.py
 # ==================== KONFIGURACJA ====================
 
 flags = [
