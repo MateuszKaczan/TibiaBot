@@ -9,7 +9,7 @@ pg.PAUSE = 0.05
 # ==================== KONFIGURACJA ====================
 
 flags = [
-    {"path": "./images/flags/flag_2.png", "wait": 4, "stops": 0},
+    {"path": "./images/flags/flag_2.png", "wait": 5, "stops": 0},
     {"path": "./images/flags/flag_3.png", "wait": 7, "stops": 1},
     {"path": "./images/flags/flag_4.png", "wait": 10, "stops": 0, "useLeftArrow": 10},
     {"path": "./images/flags/flag_6.png", "wait": 5, "stops": 0, "useLeftArrow": 10},
