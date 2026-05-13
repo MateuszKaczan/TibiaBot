@@ -182,12 +182,12 @@ def kombinacjaObszarowychCzarow():
 # ================== FUNKCJA HASTE ==================
 
 
-def haste():
+def haste(forceHaste=False):
     global last_haste_time
     current_time = time.time()
 
     # Sprawdź czy minęło 20 sekund od ostatniego użycia
-    if current_time - last_haste_time >= HASTE_COOLDOWN:
+    if (current_time - last_haste_time >= HASTE_COOLDOWN) or forceHaste:
         use_haste()
         last_haste_time = current_time
 
@@ -220,13 +220,10 @@ def kill_monster():
         if time.time() - last_aoe_time >= aoe_cooldown:
             print(f"   → Walka trwa za długo! Używam czaru obszarowego...")
             kombinacjaObszarowychCzarow()
-            zbierajLoot()
             last_aoe_time = time.time()  # Resetuj timer
-            time.sleep(0.5)
-        else:
-            zbierajLoot()
-            # Normalne zachowanie - bez AoE
-            time.sleep(0.8)
+
+        zbierajLoot()
+        time.sleep(0.15)
 
         heal_character()
 
@@ -234,7 +231,7 @@ def kill_monster():
         time.sleep(0.15)  # <-- MAŁE OPOŹNIENIE NA ZBIERANIE
 
     zbierajLoot()
-    haste()
+    time.sleep(0.15)
 
 
 def zbierajLoot():
@@ -259,13 +256,13 @@ def check_flag(flag_path, total_wait, attempts=0):
         )
 
         x, y = pg.center(box)
-        pg.moveTo(x, y, duration=0.25)
-        time.sleep(0.25)
+        pg.moveTo(x, y, duration=0.1)
+        time.sleep(0.1)
         pg.click()
         time.sleep(0.2)
         pg.moveTo(1300, 400, duration=0.2)
 
-        walk_start_time = time.time()
+        # walk_start_time = time.time()
         check_interval = 0.4
 
         walk_phase_time = min(3.0, remaining_walk_time)
@@ -314,7 +311,6 @@ def check_flag(flag_path, total_wait, attempts=0):
             print(
                 f"   → Kontynuuję podróż do flagi {flag_path} (pozostało {remaining_walk_time:.1f}s)..."
             )
-            time.sleep(0.3)
 
     print(f"   → Dotarłem do flagi {flag_path} (czas chodzenia zakończony)")
 
@@ -391,12 +387,13 @@ def zjedzJedzenie():
 
 
 def run():
-    use_haste()
+    haste(True)
     kill_monster()
 
     for flag in flags:
         check_flag(flag["path"], flag["wait"], flag["attempts"])
         zjedzJedzenie()
+        # haste()
 
 
 if __name__ == "__main__":
